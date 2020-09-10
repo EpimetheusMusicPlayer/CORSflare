@@ -11,7 +11,7 @@
 // ----------------------------------------------------------------------------------
 
 // The hostname of the upstream website to proxy(example: `www.google.com`).
-const upstream = 'www.google.com';
+const upstream = 'www.pandora.com';
 
 // The hostname of the upstream website to proxy for requests coming from mobile devices(example: `www.google.com`).
 // if the upstream website doesn't have a dedicated hostname for mobile devices, you can set it to NULL.
@@ -21,10 +21,10 @@ const upstream_mobile = null;
 const upstream_path = '/';
 
 // An array of countries and regions that won't be able to use the proxy.
-const blocked_regions = ['CN', 'KP', 'SY', 'PK', 'CU'];
+const blocked_regions = [];
 
 // An array of IP addresses that won't be able to use the proxy.
-const blocked_ip_addresses = ['0.0.0.0', '127.0.0.1'];
+const blocked_ip_addresses = [];
 
 // Set this value to TRUE to fetch the upstream website using HTTPS, FALSE to use HTTP.
 // If the upstream website doesn't support HTTPS, this must be set to FALSE; also, if the proxy is HTTPS,
@@ -45,8 +45,7 @@ const http_response_headers_set = {
     // NOTE: be sure to replace "https://www.example.com" with the domain of the HTML page containing the IFRAME.
     // ref.: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
     // ref.: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
-    'X-Frame-Options': 'ALLOW FROM https://www.example.com', // IE
-    'Content-Security-Policy': "frame-ancestors 'self' https://www.example.com;", // Chrome, Firefox, etc.
+    'Content-Security-Policy': "frame-ancestors 'self' *;", // Chrome, Firefox, etc.
 
     // use this header to bypass the same-origin policy for XMLHttpRequest, Fetch API and so on
     // ref.: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
@@ -61,6 +60,9 @@ const http_response_headers_set = {
     // 'proxy-revalidate', 'max-age=<seconds>', 's-maxage=<seconds>'.
     // ref.: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
     // 'Cache-Control': 'no-cache'
+
+    // Allow headers
+    'Access-Control-Allow-Headers': '*'
 };
 
 // an array of HTTP Response Headers to delete (if present in the upstream response)
@@ -68,6 +70,11 @@ const http_response_headers_delete = [
     'Content-Security-Policy-Report-Only',
     'Clear-Site-Data'
 ];
+
+// an array of HTTP request Headers to add (or to update, in case they're already present in the request)
+const http_request_headers_set = {
+    'Cookie': 'csrftoken=a553a9a4a5f45112',
+};
 
 // ----------------------------------------------------------------------------------
 // TEXT REPLACEMENT RULES
@@ -93,11 +100,13 @@ const http_response_headers_delete = [
 const replacement_rules = {
 
     // enable this rule only if you need to HTTPS proxy an HTTP-only website
-    'http://{upstream_hostname}/': 'https://{proxy_hostname}/',
+    //'http://{upstream_hostname}/': 'https://{proxy_hostname}/',
 
     // this rule should be always enabled (replaces the upstream hostname for internal links, CSS, JS, and so on)
     '{upstream_hostname}': '{proxy_hostname}',
 
+    // Don't redirect to www
+    'www': '',
 }
 
 // the replacement_rules will be only applied to the returned content 
@@ -170,6 +179,13 @@ async function fetchAndApply(request) {
         new_request_headers.set('Host', upstream_domain);
         new_request_headers.set('Origin', upstream_domain);
         new_request_headers.set('Referer', url.protocol + '//' + url_hostname);
+
+        if (http_request_headers_set) {
+            for (let k in http_request_headers_set) {
+                var v = http_request_headers_set[k];
+                new_request_headers.set(k, v);
+            }
+        }
 
         var params = {
             method: method,
